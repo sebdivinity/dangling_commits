@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "dangling_commits"
+description = "Tool that retrieve dangling commits from git servers"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "fyrefox" }]
+version = "0.1.0"
+
+[project.scripts]
+dangling_commits = "dangling_commits.__main__:main"
