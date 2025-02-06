@@ -36,3 +36,12 @@ class Tree(GitObject):
                 f"Tree {self.sha} generated sha {calculated_sha}: {tree}")
 
         return tree
+
+    def calculate_git_sha(self) -> str:
+        tree = bytearray()
+
+        for entry in self.entries:
+            tree.extend(f'{entry.mode} {entry.name}\x00'.encode())
+            tree.extend(bytearray.fromhex(entry.sha))
+
+        return calculate_git_sha(bytes(tree), "tree")

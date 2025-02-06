@@ -1,24 +1,30 @@
 #!/bin/env python3
 import argparse
+import json
 import logging
 import os
 import sys
 import zlib
+from pprint import pp
 
 from dangling_commits.domain.enums import CommitStatus
 from dangling_commits.domain.exceptions import InvalidShaError
+from dangling_commits.domain.git_objects.commit import Commit
 from dangling_commits.domain.interfaces import GitRepository
-from dangling_commits.domain.utils import (create_object, exec_cmd,
-                                           exec_cmd_binary,
+from dangling_commits.domain.utils import (calculate_git_sha, create_object,
+                                           exec_cmd, exec_cmd_binary,
                                            get_local_git_objects,
                                            get_remote_origin)
-from dangling_commits.infra import Github
+from dangling_commits.infra import Github, Gitlab
 
 
 def create_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--git-dir", default=os.getcwd())
     parser.add_argument("--server", choices=("gitlab", "github", "azure_devops"))
+    parser.add_argument(
+        "--save", action="store_true",
+        help="Create a json file containing hashes of dangling objects retrieved")
     debug_level = parser.add_mutually_exclusive_group()
     debug_level.add_argument(
         '-d', '--debug',
@@ -62,10 +68,13 @@ def main() -> int:
             logging.info("Automatically found %s so will query Github API", server)
             gitRepository = Github(server, folder, repository)
         else:
-            raise NotImplementedError(f"{server} is not handled yet")
+            raise NotImplementedError(
+                f"{server} cannot be automatically handled yet, maybe try using --server argument to manually specify it")
     else:
         if args.server == "github":
             gitRepository = Github(server, folder, repository)
+        elif args.server == "gitlab":
+            gitRepository = Gitlab(server, folder, repository)
         else:
             raise NotImplementedError(f"{args.server} is not handled yet")
 
@@ -73,6 +82,7 @@ def main() -> int:
     logging.info('Local commits found: %s', len(localObjectHashes.commits))
     logging.info('Local trees found: %s', len(localObjectHashes.trees))
     logging.info('Local blobs found: %s', len(localObjectHashes.blobs))
+    logging.info('Local tags found: %s', len(localObjectHashes.tags))
 
     commits, blobs, trees, branches = gitRepository.get_dangling_objects(localObjectHashes)
 
@@ -120,21 +130,55 @@ def main() -> int:
 
         logging.debug('Commit %s created %d/%d', commit.sha, idx + 1, len(dangling_commit_found))
 
+    pp(invalid_commits)
+
+    logging.info("Creating branches pointing on head of dangling trees")
+
     for branch in branches:
         branch_name = f'dangling_branch_{branch.end.sha}'
         if branch.end.sha not in invalid_commits:
             logging.info("Creating %s on commit %s", branch_name, branch.end.sha)
             exec_cmd(f"git branch {branch_name} {branch.end.sha}")
         else:
+            c = [c for c in dangling_commit_found if branch.end.sha == c.sha][0]
+            valid_commit = Commit(
+                sha="0",
+                status=c.status,
+                children=set(),
+                author=c.author,
+                committer=c.committer,
+                message=f'VALID COMMIT CREATED BECAUSE {branch.end.sha} IS FORGED:\n{c.message}',
+                signature=None,
+                tree=c.tree,
+                parents=c.parents)
+            data = valid_commit.get_git_file_unsigned().encode()
+            valid_commit.sha = calculate_git_sha(data, "commit")
+            print(f'{valid_commit.sha=}')
+            create_object(data, "commit", calculate_git_sha(data, "commit"))
             logging.warning(
                 "Won't create %s on commit %s because it was forged and git will refuse",
                 branch_name,
                 branch.end.sha)
+            exec_cmd(f"git branch {branch_name} {valid_commit.sha}")
 
     logging.info(f'Total blobs recovered: {len(blobs)}')
     logging.info(f'Total trees recovered: {len(trees)}')
     logging.info(f"Total commits recovered: {len(commits)-len(invalid_commits)}")
     logging.info(f'Total commits forged: {len(invalid_commits)}')
+
+    if args.save is True and trees or blobs or dangling_commit_found:
+        dangling_objects: dict[str, list[str]] = {
+            "commits": [c.sha for c in dangling_commit_found],
+            "trees": [t.sha for t in trees],
+            "blobs": [b.sha for b in blobs]
+        }
+
+        # FIXME: parse realpath
+        # filepath = f'{args.git_dir}/dangling_objects.json'
+        filepath = 'dangling_objects.json'
+        with open(filepath, 'w') as f:
+            json.dump(dangling_objects, f)
+        logging.info(f"Dangling objects hashes saved in {filepath}")
 
     logging.info("testing that all found commits are fully working")
     # exec_cmd(f'git fsck', exit_on_error=False)

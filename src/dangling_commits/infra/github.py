@@ -286,6 +286,7 @@ class Github(GitRepository):
             if p.returncode:
                 failed += 1
                 error_msg = stderr.decode().lower()
+
                 if "rate limit" in error_msg:
                     with sp.Popen(shlex.split("gh api /rate_limit"), stdout=sp.PIPE, stderr=sp.PIPE) as p:
                         stdout, stderr = p.communicate()
@@ -301,6 +302,10 @@ class Github(GitRepository):
                 elif any(msg in error_msg for msg in ["unexpected end of json input", "unexpected eof", "something went wrong while executing your query"]):
                     logging.debug('Request to the API failed while processing the response')
                     time.sleep(random.randint(1, 3))
+                elif "please run:  gh auth login" in error_msg:
+                    logging.error(error_msg)
+                    raise RepositoryError(
+                        "You need to authenticate with 'gh auth login' to run on a github server")
                 else:
                     logging.warning(f"Unknown error occured: {error_msg} with {cmd}")
             else:

@@ -6,7 +6,7 @@ from hashlib import sha1
 from urllib.parse import urlparse
 
 from dangling_commits.domain.exceptions import (CommandExecutionError,
-                                                InvalidShaError)
+                                                GitError, InvalidShaError)
 
 
 @ dataclass
@@ -14,6 +14,7 @@ class LocalObjectsHashes:
     commits: list[str]
     blobs: list[str]
     trees: list[str]
+    tags: list[str]
 
 
 def exec_cmd(cmd: str, exit_on_error: bool = True, stdin: str = "") -> str:
@@ -44,6 +45,7 @@ def get_local_git_objects() -> LocalObjectsHashes:
     commits: list[str] = []
     trees: list[str] = []
     blobs: list[str] = []
+    tags: list[str] = []
 
     for line in exec_cmd(
             "git cat-file --batch-check --batch-all-objects").rstrip('\n').split("\n"):
@@ -54,24 +56,31 @@ def get_local_git_objects() -> LocalObjectsHashes:
         sha, object_type = line.split(' ')[:2]
         if object_type == "commit":
             commits.append(sha)
-        if object_type == "tree":
+        elif object_type == "tree":
             trees.append(sha)
-        if object_type == "blob":
+        elif object_type == "blob":
             blobs.append(sha)
+        elif object_type == "tag":
+            tags.append(sha)
+        else:
+            raise GitError(f'Unknown object type: {object_type} for object {sha}')
 
-    return LocalObjectsHashes(commits, blobs, trees)
+    return LocalObjectsHashes(commits, blobs, trees, tags)
 
 
 def get_remote_origin() -> tuple[str, str, str]:
     remote_url = exec_cmd(
         "git remote get-url origin")
+    # if ssh url, we convert it to https:// format to use the same parsing
+    # method to get required infos
     if "@" in remote_url:
         remote_url = remote_url.split("@", maxsplit=1)[1]
+        remote_url = f'https://{remote_url.replace(":", "/", 1)}'
 
     parsed_url = urlparse(remote_url)
 
     folder = '/'.join(parsed_url.path.split("/")[:-1]).removeprefix('/')
-    repository = parsed_url.path.split("/")[-1].removesuffix(".git\n")
+    repository = parsed_url.path.split("/")[-1].rstrip('\n').removesuffix(".git")
 
     logging.debug("folder parsed: %s", folder)
     logging.debug("repository parsed: %s", repository)

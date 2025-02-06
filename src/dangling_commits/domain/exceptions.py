@@ -8,3 +8,7 @@ class RepositoryError(Exception):
 
 class CommandExecutionError(Exception):
     pass
+
+
+class GitError(Exception):
+    pass
