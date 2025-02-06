@@ -166,7 +166,7 @@ def main() -> int:
     logging.info(f"Total commits recovered: {len(commits)-len(invalid_commits)}")
     logging.info(f'Total commits forged: {len(invalid_commits)}')
 
-    if args.save is True and trees or blobs or dangling_commit_found:
+    if args.save is True and (trees or blobs or dangling_commit_found):
         dangling_objects: dict[str, list[str]] = {
             "commits": [c.sha for c in dangling_commit_found],
             "trees": [t.sha for t in trees],
