@@ -3,9 +3,10 @@
 ## Installation
 
 This project only uses native libraries of python. You don't need to use pipx or a virtual environnment to ease the dependency management.
+However, the Github implementation relies on the tool `gh`. You need to install and configure it (login with your account).
 
 ```
-git clone `project`
+git clone https://github.com/sebdivinity/dangling_commits
 pip install .
 dangling_commits -h
 ```
@@ -13,16 +14,23 @@ dangling_commits -h
 or directly install remote repository
 
 ```
-pip install git+https://github.com/
+pip install git+https://github.com/sebdivinity/dangling_commits
 dangling_commits -h
 ```
+
+### Github setup
+
+1. Install `gh` (https://cli.github.com/)
+2. Authenticate with it, `gh auth login`
+
+Otherwise, you will have errors when using the tool on a repository cloned from Github.
 
 ### External dependencies
 
 Right now, this project uses some external programs. Some of them only existing on Linux. The end goal is to only use pure python modules.
 
-- The github implementation to retrieve dangling commits use the cli tool `gh`. Could be improved to use python http requests.
-- It also uses `base64` tool on Linux. Could be improved by using native base64 python.
+- The github implementation to retrieve dangling commits use the cli tool `gh`. Could be improved to only use python http requests.
+- It also uses `base64` tool on Linux. Could be easily improved by using native base64 python.
 
 ## Improvement idea
 
