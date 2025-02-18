@@ -1,5 +1,7 @@
 # Dangling commits
 
+For context of why this tool exists and what it does, read this article: https://medium.com/etticblog/hunting-erased-secrets-in-dangling-commits-9d090210ee1e
+
 ## Installation
 
 This project only uses native libraries of python. You don't need to use pipx or a virtual environnment to ease the dependency management.
