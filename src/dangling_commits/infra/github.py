@@ -335,7 +335,7 @@ class Github(GitRepository):
         except RepositoryError as e:
             if str(e) == "Maximum attempts to perform query reached":
                 logging.warning("Query failed too many times while getting the answser")
-            if str(e) == "Invalid answer":
+            elif str(e) == "Invalid answer":
                 logging.warning(
                     "Query returned None answer for a specific object while it supposed to be impossible")
             else:
