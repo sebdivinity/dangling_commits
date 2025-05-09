@@ -124,13 +124,13 @@ def main() -> int:
             logging.info(
                 "Forging commit %s into git database because we could not generate the right content",
                 commit.sha)
-            logging.info(f"{subsha=}")
+            # logging.info(f"{subsha=}")
             with open(f"{subdir}/{subsha}", "wb") as f:
                 f.write(zlib.compress(f'commit {len(content.encode())}\x00{content}'.encode()))
 
         logging.debug('Commit %s created %d/%d', commit.sha, idx + 1, len(dangling_commit_found))
 
-    pp(invalid_commits)
+    # pp(invalid_commits)
 
     logging.info("Creating branches pointing on head of dangling trees")
 
@@ -140,6 +140,10 @@ def main() -> int:
             logging.info("Creating %s on commit %s", branch_name, branch.end.sha)
             exec_cmd(f"git branch {branch_name} {branch.end.sha}")
         else:
+            # can't create a branch on forged commit
+            # create a valid commit which will replace the forged commit
+            # the branch is pointing at the valid commit
+            # this way, things seems to work for git
             c = [c for c in dangling_commit_found if branch.end.sha == c.sha][0]
             valid_commit = Commit(
                 sha="0",
@@ -151,14 +155,23 @@ def main() -> int:
                 signature=None,
                 tree=c.tree,
                 parents=c.parents)
-            data = valid_commit.get_git_file_unsigned().encode()
+            # this is the same thing done when calling get_git_file_unsigned to forge commit
+            # I don't remember why I pass date directly to get_git_file_unsigned to
+            # overcome date format error, it prevents str(self.author) to fail
+            try:
+                data = valid_commit.get_git_file_unsigned().encode()
+            except ValueError:
+                data = valid_commit.get_git_file_unsigned(
+                    author=valid_commit.author.date,
+                    committer=valid_commit.committer.date).encode()
             valid_commit.sha = calculate_git_sha(data, "commit")
-            print(f'{valid_commit.sha=}')
+            # print(f'{valid_commit.sha=}')
             create_object(data, "commit", calculate_git_sha(data, "commit"))
             logging.warning(
                 "Won't create %s on commit %s because it was forged and git will refuse",
                 branch_name,
                 branch.end.sha)
+            logging.info("Creating %s on commit %s", branch_name, valid_commit.sha)
             exec_cmd(f"git branch {branch_name} {valid_commit.sha}")
 
     logging.info(f'Total blobs recovered: {len(blobs)}')
