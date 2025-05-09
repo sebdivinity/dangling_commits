@@ -350,8 +350,8 @@ class Github(GitRepository):
             for objects in [objects_sha[:half], objects_sha[half:]]:
                 stdout.update(
                     self.__big_graphql_query(objects,
-                                             fragment),
-                    retry_on_none_answer=retry_on_none_object)
+                                             fragment,
+                                             retry_on_none_object=retry_on_none_object))
 
         return stdout
 
