@@ -1,7 +1,7 @@
 import logging
 
 from dangling_commits.domain.enums import CommitStatus
-from dangling_commits.domain.git_objects import Blob, Commit, Tree
+from dangling_commits.domain.git_objects import Commit
 from dangling_commits.domain.git_objects.branch import Branch
 from dangling_commits.domain.utils import LocalObjectsHashes
 
@@ -17,14 +17,12 @@ class GitRepository():
         self.repository = repository
 
     @staticmethod
-    def get_dangling_branches(dangling_commits: list[Commit],
+    def get_dangling_branches(dangling_commits_dict: dict[str, Commit],
                               local_commits: list[str]) -> list[Branch]:
         dangling_branches: list[Branch] = []
 
         dead = 0
         have_proper_parents: list[Commit] = []
-
-        dangling_commits_dict = {c.sha: c for c in dangling_commits}
 
         for commit in dangling_commits_dict.values():
             if commit.status not in (CommitStatus.FOUND, CommitStatus.ERASED):
@@ -77,15 +75,12 @@ class GitRepository():
                 logging.debug(f"unexpected status for {commit}")
 
         logging.info(f'Total erased dangling commits: {dead}')
-        logging.info(f'Total recoverable dangling commits: {len(dangling_commits) - dead}')
+        logging.info(f'Total recoverable dangling commits: {len(dangling_commits_dict) - dead}')
         logging.info(
             f'Total dangling commits with non-dangling parent: {len(have_proper_parents)}')
         logging.info(f'Total dangling trees: {len(dangling_branches)}')
         return dangling_branches
 
     def get_dangling_objects(
-            self, localObjectHashes: LocalObjectsHashes) -> tuple[list[Commit], list[Blob], list[Tree], list[Branch]]:
-        raise NotImplementedError
-
-    def create_blobs(self, blobs: list[Blob]) -> None:
+            self, localObjectHashes: LocalObjectsHashes) -> list[str]:
         raise NotImplementedError
