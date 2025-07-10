@@ -8,7 +8,8 @@ import zlib
 from pprint import pp
 
 from dangling_commits.domain.enums import CommitStatus
-from dangling_commits.domain.exceptions import InvalidShaError
+from dangling_commits.domain.exceptions import (CommandExecutionError,
+                                                InvalidShaError)
 from dangling_commits.domain.git_objects.commit import Commit
 from dangling_commits.domain.interfaces import GitRepository
 from dangling_commits.domain.utils import (calculate_git_sha, create_object,
@@ -89,8 +90,16 @@ def main() -> int:
     logging.info(f'Found {len(commits_sha)} dangling commits in remote server')
 
     # handle dead commits here
-    exec_cmd('git fetch --stdin origin', exit_on_error=True,
-             stdin='\n'.join(commits_sha))
+    try:
+        exec_cmd('git fetch --stdin origin', exit_on_error=True,
+                 stdin='\n'.join(commits_sha))
+    except CommandExecutionError:
+        logging.info("Probably got some dead commits, will try one by one")
+        for commit in commits_sha:
+            try:
+                exec_cmd(f'git fetch --stdin origin {commit}', exit_on_error=True)
+            except CommandExecutionError:
+                logging.info(f"{commit} seems invalid, skipping")
 
     localObjectHashes2 = get_local_git_objects()
     blobs = set(localObjectHashes2.blobs) - set(localObjectHashes.blobs)
