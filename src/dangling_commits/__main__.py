@@ -97,7 +97,7 @@ def main() -> int:
         logging.info("Probably got some dead commits, will try one by one")
         for commit in commits_sha:
             try:
-                exec_cmd(f'git fetch --stdin origin {commit}', exit_on_error=True)
+                exec_cmd(f'git fetch origin {commit}', exit_on_error=True)
             except CommandExecutionError:
                 logging.info(f"{commit} seems invalid, skipping")
 
